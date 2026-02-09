@@ -1,8 +1,8 @@
 # scripts/02_fetch_prices.py
 from __future__ import annotations
 
-from pathlib import Path
 import time
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -49,7 +49,9 @@ def stooq_daily_csv_url_us(ticker: str) -> str:
     return f"https://stooq.com/q/d/l/?s={ticker.lower()}.us&i=d"
 
 
-def fetch_stooq_daily_csv(ticker: str, cache_dir: Path, session: requests.Session) -> pd.DataFrame | None:
+def fetch_stooq_daily_csv(
+    ticker: str, cache_dir: Path, session: requests.Session
+) -> pd.DataFrame | None:
     """
     Returns a DataFrame with columns: Date, Open, High, Low, Close, Volume (Stooq standard),
     or None if no data.
@@ -133,12 +135,14 @@ def main(config_path: str = "configs/base.yaml") -> None:
     start = pd.to_datetime(cfg["prices"]["start"]).date()
 
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/121.0 Safari/537.36",
-        "Accept": "text/csv,text/plain,*/*;q=0.8",
-    })
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/121.0 Safari/537.36",
+            "Accept": "text/csv,text/plain,*/*;q=0.8",
+        }
+    )
 
     rows: list[pd.DataFrame] = []
     missing: list[str] = []
@@ -173,7 +177,9 @@ def main(config_path: str = "configs/base.yaml") -> None:
     out = processed_dir / "prices.parquet"
     write_parquet(prices, out)
 
-    log.info(f"Saved prices: {out} rows={len(prices):,} tickers={prices['ticker'].nunique() if not prices.empty else 0}")
+    log.info(
+        f"Saved prices: {out} rows={len(prices):,} tickers={prices['ticker'].nunique() if not prices.empty else 0}"
+    )
     if missing:
         log.info(f"Missing tickers (first 30): {missing[:30]} (total {len(missing)})")
 

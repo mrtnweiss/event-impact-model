@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-
+from scipy.stats import pearsonr, spearmanr
 from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.linear_model import Ridge, LogisticRegression
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score
-from scipy.stats import spearmanr, pearsonr
 
 from event_impact_model.utils.io import ensure_dir, write_parquet
 from event_impact_model.utils.log import get_logger
@@ -82,16 +82,20 @@ def main() -> None:
         remainder="drop",
     )
 
-    ridge_model = Pipeline([
-        ("pre", preproc),
-        ("model", Ridge(alpha=10.0, random_state=42)),
-    ])
+    ridge_model = Pipeline(
+        [
+            ("pre", preproc),
+            ("model", Ridge(alpha=10.0, random_state=42)),
+        ]
+    )
 
     # We'll also train a logistic baseline on sign(y)
-    logit_model = Pipeline([
-        ("pre", preproc),
-        ("model", LogisticRegression(max_iter=2000, C=1.0)),
-    ])
+    logit_model = Pipeline(
+        [
+            ("pre", preproc),
+            ("model", LogisticRegression(max_iter=2000, C=1.0)),
+        ]
+    )
 
     # CV settings
     n_splits = 5
@@ -100,12 +104,16 @@ def main() -> None:
     oos_rows = []
     fold_metrics = []
 
-    for fold, train_mask, test_mask, (d0, d1) in make_walkforward_splits(df["trade_date_aligned"], n_splits, embargo_days):
+    for fold, train_mask, test_mask, (d0, d1) in make_walkforward_splits(
+        df["trade_date_aligned"], n_splits, embargo_days
+    ):
         X_train, y_train = X.loc[train_mask], y[train_mask]
         X_test, y_test = X.loc[test_mask], y[test_mask]
 
         if len(y_train) < 200 or len(y_test) < 50:
-            log.warning(f"Fold {fold}: too small train/test (train={len(y_train)}, test={len(y_test)}), skipping")
+            log.warning(
+                f"Fold {fold}: too small train/test (train={len(y_train)}, test={len(y_test)}), skipping"
+            )
             continue
 
         # Ridge
@@ -113,20 +121,30 @@ def main() -> None:
         y_pred = ridge_model.predict(X_test)
 
         m = compute_metrics(y_test, y_pred)
-        m.update({"fold": fold, "model": "ridge", "test_start": str(d0), "test_end": str(d1), "n_test": len(y_test)})
+        m.update(
+            {
+                "fold": fold,
+                "model": "ridge",
+                "test_start": str(d0),
+                "test_end": str(d1),
+                "n_test": len(y_test),
+            }
+        )
         fold_metrics.append(m)
 
         # Store OOS predictions
         test_idx = df.index[test_mask]
-        for idx_i, yp in zip(test_idx, y_pred):
-            oos_rows.append({
-                "event_id": df.loc[idx_i, "event_id"],
-                "ticker": df.loc[idx_i, "ticker"],
-                "date": df.loc[idx_i, "trade_date_aligned"].date(),
-                "y_true": float(df.loc[idx_i, "y_car_p1_p5"]),
-                "y_pred_ridge": float(yp),
-                "fold": int(fold),
-            })
+        for idx_i, yp in zip(test_idx, y_pred, strict=True):
+            oos_rows.append(
+                {
+                    "event_id": df.loc[idx_i, "event_id"],
+                    "ticker": df.loc[idx_i, "ticker"],
+                    "date": df.loc[idx_i, "trade_date_aligned"].date(),
+                    "y_true": float(df.loc[idx_i, "y_car_p1_p5"]),
+                    "y_pred_ridge": float(yp),
+                    "fold": int(fold),
+                }
+            )
 
         # Logistic on sign
         yb_train = (y_train > 0).astype(int)
@@ -136,18 +154,22 @@ def main() -> None:
         pred_class = (proba > 0.5).astype(int)
         acc = accuracy_score(yb_test, pred_class)
 
-        fold_metrics.append({
-            "fold": fold,
-            "model": "logit_sign",
-            "test_start": str(d0),
-            "test_end": str(d1),
-            "n_test": len(y_test),
-            "accuracy": float(acc),
-            "pos_rate_pred": float(proba.mean()),
-            "pos_rate_true": float(yb_test.mean()),
-        })
+        fold_metrics.append(
+            {
+                "fold": fold,
+                "model": "logit_sign",
+                "test_start": str(d0),
+                "test_end": str(d1),
+                "n_test": len(y_test),
+                "accuracy": float(acc),
+                "pos_rate_pred": float(proba.mean()),
+                "pos_rate_true": float(yb_test.mean()),
+            }
+        )
 
-        log.info(f"Fold {fold} [{d0}..{d1}] ridge: spearman={m['spearman']:.3f} pearson={m['pearson']:.3f} hit={m['hit_rate']:.3f} mse={m['mse']:.6f}")
+        log.info(
+            f"Fold {fold} [{d0}..{d1}] ridge: spearman={m['spearman']:.3f} pearson={m['pearson']:.3f} hit={m['hit_rate']:.3f} mse={m['mse']:.6f}"
+        )
 
     oos = pd.DataFrame(oos_rows).sort_values(["date", "event_id"])
     metrics = pd.DataFrame(fold_metrics)

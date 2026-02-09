@@ -65,7 +65,11 @@ def market_model_ar_for_event(
     OLS market model on estimation window then AR over tau_min..tau_max (inclusive).
     """
     g = rets[rets["ticker"] == ticker].copy()
-    m = rets[rets["ticker"] == mkt_ticker][["date", "ret"]].rename(columns={"ret": "mkt_ret"}).copy()
+    m = (
+        rets[rets["ticker"] == mkt_ticker][["date", "ret"]]
+        .rename(columns={"ret": "mkt_ret"})
+        .copy()
+    )
 
     if g.empty or m.empty:
         return None
@@ -108,7 +112,7 @@ def market_model_ar_for_event(
         "alpha": float(alpha),
         "beta": float(beta),
         "n_est": int(len(est)),
-        "ar_by_tau": dict(zip(evw["tau"].astype(int), evw["ar"].astype(float))),
+        "ar_by_tau": dict(zip(evw["tau"].astype(int), evw["ar"].astype(float), strict=True)),
     }
 
 
@@ -171,18 +175,20 @@ def main() -> None:
         if res is None:
             continue
 
-        out_rows.append({
-            "event_id": row.event_id,
-            "ticker": row.ticker,
-            "form": row.form,
-            "session_bucket": row.session_bucket,
-            "accepted_utc": row.accepted_utc,
-            "trade_date": row.trade_date,
-            "trade_date_aligned": row.trade_date_aligned,
-            "alpha": res["alpha"],
-            "beta": res["beta"],
-            "n_est": res["n_est"],
-        })
+        out_rows.append(
+            {
+                "event_id": row.event_id,
+                "ticker": row.ticker,
+                "form": row.form,
+                "session_bucket": row.session_bucket,
+                "accepted_utc": row.accepted_utc,
+                "trade_date": row.trade_date,
+                "trade_date_aligned": row.trade_date_aligned,
+                "alpha": res["alpha"],
+                "beta": res["beta"],
+                "n_est": res["n_est"],
+            }
+        )
         for tau, ar in res["ar_by_tau"].items():
             ar_panel.append({"event_id": row.event_id, "tau": int(tau), "ar": float(ar)})
 
@@ -190,7 +196,9 @@ def main() -> None:
     ar_out = pd.DataFrame(ar_panel)
 
     if events_out.empty:
-        raise RuntimeError("No events produced (likely insufficient history for estimation window).")
+        raise RuntimeError(
+            "No events produced (likely insufficient history for estimation window)."
+        )
 
     # CAAR over tau range
     caar = ar_out.groupby("tau")["ar"].mean().reset_index().rename(columns={"ar": "caar"})
@@ -207,7 +215,9 @@ def main() -> None:
 
     mean_car = events_out["car_main_-1_5"].mean()
     sd = events_out["car_main_-1_5"].std(ddof=1)
-    t_stat = mean_car / (sd / np.sqrt(len(events_out))) if sd and len(events_out) > 1 else float("nan")
+    t_stat = (
+        mean_car / (sd / np.sqrt(len(events_out))) if sd and len(events_out) > 1 else float("nan")
+    )
 
     log.info(f"Saved: data/processed/event_study_events.parquet rows={len(events_out):,}")
     log.info(f"Saved: data/processed/event_study_ar.parquet rows={len(ar_out):,}")

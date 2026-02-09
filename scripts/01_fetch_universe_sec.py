@@ -12,9 +12,11 @@ log = get_logger("fetch_universe_sec")
 
 SEC_TICKER_CIK = "https://www.sec.gov/files/company_tickers.json"
 
+
 def normalize_ticker(t: str) -> str:
     # keep BRK-B style (SEC uses BRK-B), good for many providers
     return t.strip().upper()
+
 
 def main(config_path: str = "configs/base.yaml"):
     cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
@@ -46,6 +48,7 @@ def main(config_path: str = "configs/base.yaml"):
     out = raw_dir / f"universe_sec_{df['asof_date'].iloc[0]}.csv"
     df.to_csv(out, index=False)
     log.info(f"Saved universe snapshot: {out} ({len(df)} tickers)")
+
 
 if __name__ == "__main__":
     main()
