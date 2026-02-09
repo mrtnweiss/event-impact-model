@@ -1,0 +1,20 @@
+universe:
+  name: sp500_wikipedia_snapshot
+  max_tickers: 50
+
+prices:
+  provider: stooq
+  start: "2018-01-01"
+  end: null
+  benchmark: "SPY"
+
+events:
+  provider: sec_edgar
+  forms: ["8-K", "10-Q", "10-K"]
+  user_agent: "Martin Weiss martin.weiss5000@gmail.com"
+  max_events_per_ticker: 2000
+
+paths:
+  raw: "data/raw"
+  processed: "data/processed"
+  cache: "data/cache"

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "event-impact-model"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "pyarrow>=14.0",
+  "requests>=2.31",
+  "python-dateutil>=2.8",
+  "pytz>=2024.1",
+  "tqdm>=4.66",
+  "lxml>=4.9",
+  "beautifulsoup4>=4.12",
+  "pytest>=7.0",
+  "pyyaml>=6.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["event_impact_model*"]
