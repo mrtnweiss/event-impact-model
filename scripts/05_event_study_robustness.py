@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -81,7 +82,7 @@ def main() -> None:
 
     # Windows
     pretrend_taus = list(range(-10, -1))  # -10..-2
-    car_main_taus = list(range(-1, 6))    # -1..+5
+    car_main_taus = list(range(-1, 6))  # -1..+5
 
     # Compute per-event CARs
     car_pre = car_from_ar(ar, pretrend_taus).rename("car_pretrend")
@@ -97,15 +98,17 @@ def main() -> None:
     for label, col in [("CAR_pretrend[-10,-2]", "car_pretrend"), ("CAR_main[-1,5]", "car_main")]:
         mu, t = t_stat_mean(ev[col].to_numpy())
         p = bootstrap_pvalue_mean(ev[col].to_numpy(), n_boot=2000, seed=42)
-        overall.append({
-            "group": "ALL",
-            "split": "ALL",
-            "metric": label,
-            "n": len(ev),
-            "mean": mu,
-            "t_stat": t,
-            "boot_p": p,
-        })
+        overall.append(
+            {
+                "group": "ALL",
+                "split": "ALL",
+                "metric": label,
+                "n": len(ev),
+                "mean": mu,
+                "t_stat": t,
+                "boot_p": p,
+            }
+        )
 
     # Subgroup tests (form, session_bucket)
     tests = []
@@ -113,18 +116,23 @@ def main() -> None:
         for split_val, g in ev.groupby(split_col):
             if len(g) < 100:
                 continue
-            for label, col in [("CAR_pretrend[-10,-2]", "car_pretrend"), ("CAR_main[-1,5]", "car_main")]:
+            for label, col in [
+                ("CAR_pretrend[-10,-2]", "car_pretrend"),
+                ("CAR_main[-1,5]", "car_main"),
+            ]:
                 mu, t = t_stat_mean(g[col].to_numpy())
                 p = bootstrap_pvalue_mean(g[col].to_numpy(), n_boot=2000, seed=42)
-                tests.append({
-                    "group": split_col,
-                    "split": str(split_val),
-                    "metric": label,
-                    "n": len(g),
-                    "mean": mu,
-                    "t_stat": t,
-                    "boot_p": p,
-                })
+                tests.append(
+                    {
+                        "group": split_col,
+                        "split": str(split_val),
+                        "metric": label,
+                        "n": len(g),
+                        "mean": mu,
+                        "t_stat": t,
+                        "boot_p": p,
+                    }
+                )
 
     df_tests = pd.DataFrame(overall + tests)
 
@@ -145,7 +153,9 @@ def main() -> None:
         top = df_tests.loc[mask].sort_values("boot_p").head(10)
         log.info("Top subgroup results by bootstrap p-value:")
         for r in top.itertuples(index=False):
-            log.info(f"{r.group}={r.split} | {r.metric} | n={r.n} mean={r.mean:.6f} t={r.t_stat:.2f} p={r.boot_p:.4f} q={getattr(r,'bh_q',np.nan):.4f}")
+            log.info(
+                f"{r.group}={r.split} | {r.metric} | n={r.n} mean={r.mean:.6f} t={r.t_stat:.2f} p={r.boot_p:.4f} q={getattr(r, 'bh_q', np.nan):.4f}"
+            )
 
 
 if __name__ == "__main__":

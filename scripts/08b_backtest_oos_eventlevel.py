@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -19,7 +20,14 @@ def summarize_returns(x: pd.Series) -> dict:
     t = mu / (sd / np.sqrt(n)) if n > 1 and sd and sd > 0 else np.nan
     sharpe = (mu / sd) * np.sqrt(252) if n > 1 and sd and sd > 0 else np.nan
     hit = float((x > 0).mean()) if n else np.nan
-    return {"n": n, "mean": float(mu), "std": float(sd), "t_stat": float(t), "sharpe": float(sharpe), "hit": hit}
+    return {
+        "n": n,
+        "mean": float(mu),
+        "std": float(sd),
+        "t_stat": float(t),
+        "sharpe": float(sharpe),
+        "hit": hit,
+    }
 
 
 def main() -> None:
@@ -48,8 +56,10 @@ def main() -> None:
     ls_ret = long_ret.reset_index(drop=True) - short_ret.reset_index(drop=True)
 
     overall = summarize_returns(ls_ret)
-    log.info(f"Event-level LS (top/bottom {q:.0%}) | n_pairs={overall['n']:,} mean={overall['mean']:.6f} "
-             f"t≈{overall['t_stat']:.2f} sharpe≈{overall['sharpe']:.2f} hit={overall['hit']:.3f}")
+    log.info(
+        f"Event-level LS (top/bottom {q:.0%}) | n_pairs={overall['n']:,} mean={overall['mean']:.6f} "
+        f"t≈{overall['t_stat']:.2f} sharpe≈{overall['sharpe']:.2f} hit={overall['hit']:.3f}"
+    )
 
     # Monthly evaluation (more interpretable for sparse events)
     oos["ym"] = oos["date"].dt.to_period("M").astype(str)
@@ -78,8 +88,10 @@ def main() -> None:
     log.info(f"Saved: {out2} (rows={len(monthly):,})")
 
     if not monthly.empty:
-        log.info("Monthly mean of means (rough): "
-                 f"{monthly['mean'].mean():.6f} over {len(monthly)} months")
+        log.info(
+            "Monthly mean of means (rough): "
+            f"{monthly['mean'].mean():.6f} over {len(monthly)} months"
+        )
 
 
 if __name__ == "__main__":

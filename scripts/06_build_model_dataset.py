@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -82,25 +83,40 @@ def main() -> None:
 
     # Keep model columns
     out_cols = [
-        "event_id", "ticker", "form", "session_bucket",
-        "accepted_utc", "trade_date_aligned",
+        "event_id",
+        "ticker",
+        "form",
+        "session_bucket",
+        "accepted_utc",
+        "trade_date_aligned",
         "y_car_p1_p5",
-        "mom_1d", "mom_5d", "mom_20d", "vol_20d", "dollar_vol_20d",
-        "dow", "month",
+        "mom_1d",
+        "mom_5d",
+        "mom_20d",
+        "vol_20d",
+        "dollar_vol_20d",
+        "dow",
+        "month",
     ]
     df = df[out_cols].copy()
 
     # Drop rows with missing features (need enough history)
     before = len(df)
-    df = df.dropna(subset=["y_car_p1_p5", "mom_1d", "mom_5d", "mom_20d", "vol_20d", "dollar_vol_20d"])
+    df = df.dropna(
+        subset=["y_car_p1_p5", "mom_1d", "mom_5d", "mom_20d", "vol_20d", "dollar_vol_20d"]
+    )
     after = len(df)
 
     out = processed / "model_dataset.parquet"
     write_parquet(df, out)
 
-    log.info(f"Saved model dataset: {out} rows={after:,} (dropped {before-after:,} due to missing features)")
+    log.info(
+        f"Saved model dataset: {out} rows={after:,} (dropped {before - after:,} due to missing features)"
+    )
     log.info(f"Date range: {df['trade_date_aligned'].min()} .. {df['trade_date_aligned'].max()}")
-    log.info(f"Tickers: {df['ticker'].nunique()} | forms: {df['form'].nunique()} | buckets: {df['session_bucket'].nunique()}")
+    log.info(
+        f"Tickers: {df['ticker'].nunique()} | forms: {df['form'].nunique()} | buckets: {df['session_bucket'].nunique()}"
+    )
 
 
 if __name__ == "__main__":

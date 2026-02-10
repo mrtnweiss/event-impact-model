@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -21,8 +22,7 @@ def main() -> None:
     oos = oos.dropna(subset=["y_pred_ridge", "y_true"])
 
     # Parameters
-    q = 0.2          # top/bottom quantile
-    hold_days = 5    # aligns with y_true = CAR[+1,+5]
+    q = 0.2  # top/bottom quantile
 
     # group by formation day
     daily = []
@@ -41,17 +41,19 @@ def main() -> None:
         short_ret = float(short["y_true"].mean())
         ls_ret = long_ret - short_ret
 
-        daily.append({
-            "date": pd.Timestamp(d),
-            "n_events": n,
-            "n_long": len(long),
-            "n_short": len(short),
-            "mean_pred_long": float(long["y_pred_ridge"].mean()),
-            "mean_pred_short": float(short["y_pred_ridge"].mean()),
-            "ret_long": long_ret,
-            "ret_short": short_ret,
-            "ret_ls": ls_ret,
-        })
+        daily.append(
+            {
+                "date": pd.Timestamp(d),
+                "n_events": n,
+                "n_long": len(long),
+                "n_short": len(short),
+                "mean_pred_long": float(long["y_pred_ridge"].mean()),
+                "mean_pred_short": float(short["y_pred_ridge"].mean()),
+                "ret_long": long_ret,
+                "ret_short": short_ret,
+                "ret_ls": ls_ret,
+            }
+        )
 
     bt = pd.DataFrame(daily).sort_values("date")
     if bt.empty:

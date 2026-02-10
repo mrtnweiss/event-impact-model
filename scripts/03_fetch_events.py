@@ -1,20 +1,20 @@
 # scripts/03_fetch_events.py
 from __future__ import annotations
 
-from pathlib import Path
 import hashlib
 import json
 import re
 import time
+from pathlib import Path
 
 import pandas as pd
 import requests
 import yaml
 from tqdm import tqdm
 
+from event_impact_model.utils.dates import session_bucket, to_et
 from event_impact_model.utils.io import ensure_dir, write_parquet
 from event_impact_model.utils.log import get_logger
-from event_impact_model.utils.dates import to_et, session_bucket
 
 log = get_logger("fetch_events")
 
@@ -142,20 +142,24 @@ def main(config_path: str = "configs/base.yaml") -> None:
         log.warning("SEC user_agent should be like 'Name email@domain.com' to avoid blocks.")
 
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": user_agent,
-        "Accept-Encoding": "gzip, deflate",
-        "Accept": "application/json,text/plain,*/*;q=0.8",
-    })
+    session.headers.update(
+        {
+            "User-Agent": user_agent,
+            "Accept-Encoding": "gzip, deflate",
+            "Accept": "application/json,text/plain,*/*;q=0.8",
+        }
+    )
 
     events: list[dict] = []
     failed: list[str] = []
     bad_acceptance = 0
     total_filings_seen = 0
 
-    for row in tqdm(uni.itertuples(index=False), total=len(uni), desc="Downloading EDGAR submissions"):
-        ticker = getattr(row, "ticker")
-        cik_10 = getattr(row, "cik")
+    for row in tqdm(
+        uni.itertuples(index=False), total=len(uni), desc="Downloading EDGAR submissions"
+    ):
+        ticker = row.ticker
+        cik_10 = row.cik
 
         data = fetch_submissions_json(cik_10, cache_dir, session)
         if not data:
@@ -185,17 +189,19 @@ def main(config_path: str = "configs/base.yaml") -> None:
             accepted_et = to_et(accepted_utc)
             bucket = session_bucket(accepted_et)
 
-            events.append({
-                "event_id": stable_event_id(ticker, form, accepted_utc, accession),
-                "ticker": ticker,
-                "cik": cik_10,
-                "form": form,
-                "accession": accession,
-                "accepted_utc": accepted_utc,
-                "accepted_et": accepted_et,
-                "session_bucket": bucket,
-                "trade_date": mvp_trade_date(accepted_et, bucket).date(),
-            })
+            events.append(
+                {
+                    "event_id": stable_event_id(ticker, form, accepted_utc, accession),
+                    "ticker": ticker,
+                    "cik": cik_10,
+                    "form": form,
+                    "accession": accession,
+                    "accepted_utc": accepted_utc,
+                    "accepted_et": accepted_et,
+                    "session_bucket": bucket,
+                    "trade_date": mvp_trade_date(accepted_et, bucket).date(),
+                }
+            )
 
         time.sleep(0.15)
 
@@ -206,8 +212,12 @@ def main(config_path: str = "configs/base.yaml") -> None:
     out = processed_dir / "events.parquet"
     write_parquet(ev, out)
 
-    log.info(f"Saved events: {out} rows={len(ev):,} tickers={ev['ticker'].nunique() if not ev.empty else 0}")
-    log.info(f"Bad acceptanceDateTime skipped: {bad_acceptance} (out of {total_filings_seen} filings scanned)")
+    log.info(
+        f"Saved events: {out} rows={len(ev):,} tickers={ev['ticker'].nunique() if not ev.empty else 0}"
+    )
+    log.info(
+        f"Bad acceptanceDateTime skipped: {bad_acceptance} (out of {total_filings_seen} filings scanned)"
+    )
     if failed:
         log.info(f"Failed tickers (first 30): {failed[:30]} (total {len(failed)})")
 
