@@ -20,33 +20,38 @@ def compute_returns(px: pd.DataFrame) -> pd.DataFrame:
     return px.dropna(subset=["ret"])
 
 
-def add_event_index_dates(ev: pd.DataFrame, px_dates: pd.DataFrame) -> pd.DataFrame:
+def add_event_index_dates(ev: pd.DataFrame, rets: pd.DataFrame) -> pd.DataFrame:
     """
-    Map each event's trade_date to the next available price date per ticker.
+    Since trade_date is already NYSE-trading-day-aware, we align by exact match:
+      trade_date_aligned = trade_date  if a return observation exists on that date.
+    Otherwise drop the event.
+
+    This avoids silent forward-shifts to "next available print".
     """
     ev = ev.copy()
     ev["trade_date"] = pd.to_datetime(ev["trade_date"]).dt.date
 
-    dates_by_ticker = {}
-    for t, g in px_dates.groupby("ticker"):
-        dates_by_ticker[t] = np.array(sorted(g["date"].unique()))
+    # build a fast membership set per ticker
+    dates_by_ticker: dict[str, set] = {}
+    for t, g in rets.groupby("ticker"):
+        dates_by_ticker[t] = set(g["date"].unique())
 
-    mapped = []
+    aligned = []
+    missing = 0
     for row in ev.itertuples(index=False):
         t = row.ticker
         d = row.trade_date
-        arr = dates_by_ticker.get(t)
-        if arr is None or len(arr) == 0:
-            mapped.append(None)
-            continue
-        idx = np.searchsorted(arr, np.datetime64(d), side="left")
-        if idx >= len(arr):
-            mapped.append(None)
+        s = dates_by_ticker.get(t)
+        if s is None or d not in s:
+            aligned.append(None)
+            missing += 1
         else:
-            mapped.append(pd.Timestamp(arr[idx]).date())
+            aligned.append(d)
 
-    ev["trade_date_aligned"] = mapped
-    ev = ev.dropna(subset=["trade_date_aligned"])
+    ev["trade_date_aligned"] = aligned
+    ev = ev.dropna(subset=["trade_date_aligned"]).copy()
+
+    log.info(f"Alignment: dropped {missing:,} events without price return on trade_date")
     return ev
 
 
@@ -153,8 +158,7 @@ def main() -> None:
     ev = ev[keep_cols].copy()
     ev = ev[ev["ticker"].isin(common)].copy()
 
-    px_dates = rets[["ticker", "date"]].copy()
-    ev = add_event_index_dates(ev, px_dates)
+    ev = add_event_index_dates(ev, rets)
     log.info(f"Events after aligning trade dates to trading days: {len(ev):,}")
 
     out_rows = []

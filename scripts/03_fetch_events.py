@@ -12,6 +12,7 @@ import requests
 import yaml
 from tqdm import tqdm
 
+from event_impact_model.utils.calendars import effective_trade_date
 from event_impact_model.utils.dates import session_bucket, to_et
 from event_impact_model.utils.io import ensure_dir, write_parquet
 from event_impact_model.utils.log import get_logger
@@ -73,18 +74,6 @@ def parse_acceptance_datetime_utc(val) -> pd.Timestamp | None:
         return pd.Timestamp(ts)
     except Exception:
         return None
-
-
-def mvp_trade_date(accepted_et: pd.Timestamp, bucket: str) -> pd.Timestamp:
-    """
-    MVP daily mapping (conservative):
-      - premarket -> same calendar date
-      - intraday/afterhours -> next calendar date
-    Later we replace with a real NYSE trading calendar.
-    """
-    if bucket == "premarket":
-        return pd.Timestamp(accepted_et.date())
-    return pd.Timestamp((accepted_et + pd.Timedelta(days=1)).date())
 
 
 def fetch_submissions_json(
@@ -199,7 +188,7 @@ def main(config_path: str = "configs/base.yaml") -> None:
                     "accepted_utc": accepted_utc,
                     "accepted_et": accepted_et,
                     "session_bucket": bucket,
-                    "trade_date": mvp_trade_date(accepted_et, bucket).date(),
+                    "trade_date": effective_trade_date(accepted_et, bucket).date(),
                 }
             )
 
