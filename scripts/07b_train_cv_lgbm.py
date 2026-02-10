@@ -4,13 +4,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from lightgbm import LGBMRegressor
 from scipy.stats import pearsonr, spearmanr
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-
-from lightgbm import LGBMRegressor
 
 from event_impact_model.cv.purged import PurgedWalkForwardSplitter
 from event_impact_model.utils.io import ensure_dir, write_parquet
