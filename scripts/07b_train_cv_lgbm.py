@@ -63,7 +63,6 @@ def main() -> None:
         verbose=-1,
     )
 
-
     pipe = Pipeline([("pre", preproc), ("model", model)])
 
     splitter = PurgedWalkForwardSplitter(n_splits=5, label_horizon_days=7, embargo_days=5)
@@ -80,7 +79,9 @@ def main() -> None:
         y_pred = pipe.predict(X_test)
 
         m = compute_metrics(y_test, y_pred)
-        m.update({"fold": fold, "model": "lgbm", "test_start": d0, "test_end": d1, "n_test": len(y_test)})
+        m.update(
+            {"fold": fold, "model": "lgbm", "test_start": d0, "test_end": d1, "n_test": len(y_test)}
+        )
         fold_metrics.append(m)
 
         test_idx = df.index[test_mask]
