@@ -221,6 +221,8 @@ def main() -> None:
     q = 0.2
     cost_bps = 2.0
 
+    log.info(f"Default config: delay={delay_days} horizon={horizon_days} q={q} cost_bps={cost_bps}")
+
     px2 = compute_trade_return_cc(px, delay_days=delay_days, horizon_days=horizon_days)
     df = base_df.merge(px2[["ticker", "date", "ret_trade_cc"]], on=["ticker", "date"], how="left")
 
@@ -261,6 +263,7 @@ def main() -> None:
     grid.to_csv(out3, index=False)
     log.info(f"Saved: {out3} rows={len(grid):,}")
 
+    log.info("Sensitivity grid is for robustness; we do NOT select the best row for trading.")
     top = grid.sort_values("monthly_sharpe_ann", ascending=False).head(10)
     for r in top.itertuples(index=False):
         log.info(
