@@ -12,34 +12,11 @@ from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from event_impact_model.cv.purged import PurgedWalkForwardSplitter
 from event_impact_model.utils.io import ensure_dir, write_parquet
 from event_impact_model.utils.log import get_logger
 
 log = get_logger("train_cv_baselines")
-
-
-def make_walkforward_splits(dates: pd.Series, n_splits: int = 5, embargo_days: int = 5):
-    """
-    Walk-forward split by unique dates.
-    Each fold uses all dates before test window as train, then embargo gap, then test window.
-    """
-    u = np.array(sorted(pd.to_datetime(dates).dt.date.unique()))
-    if len(u) < 200:
-        log.warning("Very few unique dates; CV may be unstable.")
-
-    # split unique dates into n_splits contiguous test blocks
-    blocks = np.array_split(u, n_splits)
-    for k, test_dates in enumerate(blocks):
-        test_start = test_dates[0]
-        test_end = test_dates[-1]
-
-        # train uses dates strictly before (test_start - embargo)
-        cutoff = pd.Timestamp(test_start) - pd.Timedelta(days=embargo_days)
-        train_mask = pd.to_datetime(dates) < cutoff
-
-        test_mask = pd.to_datetime(dates).dt.date.isin(test_dates)
-
-        yield k, train_mask.to_numpy(), test_mask.to_numpy(), (test_start, test_end)
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
@@ -97,16 +74,19 @@ def main() -> None:
         ]
     )
 
-    # CV settings
-    n_splits = 5
-    embargo_days = 5
+    # CV settings (purged + embargo)
+    splitter = PurgedWalkForwardSplitter(
+        n_splits=5,
+        label_horizon_days=7,  # approx for CAR[+1,+5]
+        embargo_days=5,
+    )
+
+    splits = splitter.split(df["trade_date_aligned"])
 
     oos_rows = []
     fold_metrics = []
 
-    for fold, train_mask, test_mask, (d0, d1) in make_walkforward_splits(
-        df["trade_date_aligned"], n_splits, embargo_days
-    ):
+    for fold, train_mask, test_mask, (d0, d1) in splits:
         X_train, y_train = X.loc[train_mask], y[train_mask]
         X_test, y_test = X.loc[test_mask], y[test_mask]
 
