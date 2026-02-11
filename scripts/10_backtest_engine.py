@@ -41,6 +41,10 @@ def main() -> None:
         vol_lookback=60,
     )
 
+    log.info(
+        f"Default config: delay={cfg.delay_days} horizon={cfg.horizon_days} q={cfg.q} cost_bps={cfg.cost_bps}"
+    )
+
     daily, summary = run_backtest(prices=prices, oos=oos, pred_col=pred_col, cfg=cfg)
 
     out_daily = reports / "backtest_engine_daily.csv"
@@ -70,14 +74,15 @@ def main() -> None:
     daily_vt.to_csv(out_daily_vt, index=False)
     summary_vt.to_csv(out_summary_vt, index=False)
 
-    lev_mean = float(daily_vt["lev"].mean())
-    lev_p95 = float(daily_vt["lev"].quantile(0.95))
-    log.info(f"VT leverage stats: mean={lev_mean:.2f} p95={lev_p95:.2f}")
+    if "lev" in daily_vt.columns and not daily_vt.empty:
+        lev_mean = float(daily_vt["lev"].mean())
+        lev_p95 = float(daily_vt["lev"].quantile(0.95))
+        log.info(f"VT leverage stats: mean={lev_mean:.2f} p95={lev_p95:.2f}")
 
     sv = summary_vt.iloc[0].to_dict()
     log.info(
         f"VT Sharpe gross={sv['sharpe_gross']:.2f} net={sv['sharpe_net']:.2f} | "
-        f"MaxDD net={100 * sv['maxdd_net']:.2f}%"
+        f"MaxDD gross={100 * sv['maxdd_gross']:.2f}% net={100 * sv['maxdd_net']:.2f}%"
     )
 
     log.info(f"Saved: {out_daily_vt}")
