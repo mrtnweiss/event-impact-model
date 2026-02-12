@@ -1,8 +1,10 @@
+import subprocess
+import sys
+
 import pandas as pd
 
 
-def test_smoke_can_read_artifacts_and_compute_basic_stats():
-    # Minimal: ensure the repository can load and process sample fixtures
+def test_smoke_can_read_fixtures_and_compute_returns():
     prices = pd.read_parquet("tests/fixtures/prices_sample.parquet")
     events = pd.read_parquet("tests/fixtures/events_sample.parquet")
 
@@ -14,3 +16,13 @@ def test_smoke_can_read_artifacts_and_compute_basic_stats():
     prices["ret"] = prices.groupby("ticker")["close"].pct_change()
 
     assert prices["ret"].notna().sum() > 0
+
+
+def test_smoke_report_build_runs_offline():
+    proc = subprocess.run(
+        [sys.executable, "scripts/11_build_report.py"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stdout + "\n" + proc.stderr
