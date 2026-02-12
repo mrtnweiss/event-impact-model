@@ -141,7 +141,9 @@ def run_backtest(
     trades = _make_signal_trades(oos=oos, trade_dates=trade_dates, cfg=cfg, pred_col=pred_col)
     trades = trades.sort_values(["entry", "exit", "ticker"]).reset_index(drop=True)
 
-    rets = pxr.pivot(index="date", columns="ticker", values="ret_cc").sort_index().reindex(trade_dates)
+    rets = (
+        pxr.pivot(index="date", columns="ticker", values="ret_cc").sort_index().reindex(trade_dates)
+    )
 
     active: dict[str, float] = {}
     by_entry: dict[pd.Timestamp, list[tuple[str, float]]] = {}
@@ -227,7 +229,6 @@ def run_backtest(
                 "ret_net": float((r_net) * lev),
             }
         )
-
 
         w_prev = w
 
