@@ -1,21 +1,16 @@
-# venv
 .venv/
-
-# data artifacts
-data/cache/
-data/processed/
-reports/
-
-# python build/test
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
+
+data/cache/
+data/processed/
+reports/figures/
+
 dist/
 build/
 *.egg-info/
 
-# editors/os
 .vscode/
-.idea/
-Thumbs.db
 .DS_Store

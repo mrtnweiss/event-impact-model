@@ -1,4 +1,4 @@
-.PHONY: setup lint format test pipeline report all clean
+.PHONY: setup lint format test pipeline backtest robustness report all clean build
 
 PY := python
 
@@ -10,7 +10,7 @@ lint:
 	$(PY) -m ruff check .
 
 format:
-	$(PY) -m ruff format .
+	$(PY) -m ruff format --check .
 
 test:
 	$(PY) -m pytest -q
@@ -22,16 +22,25 @@ pipeline:
 	$(PY) scripts/04_event_study_mvp.py
 	$(PY) scripts/05_event_study_robustness.py
 	$(PY) scripts/06_build_model_dataset.py
+	$(PY) scripts/07_train_cv_baselines.py
 	$(PY) scripts/07b_train_cv_lgbm.py
 
 backtest:
 	$(PY) scripts/09_backtest_costed.py
 	$(PY) scripts/10_backtest_engine.py
 
+robustness:
+	$(PY) scripts/12_robustness_sanity.py
+	$(PY) scripts/13_robustness_subsamples.py
+	$(PY) scripts/14_robustness_within_day_shuffle.py
+
 report:
 	$(PY) scripts/11_build_report.py
 
-all: lint test pipeline backtest report
+all: lint format test pipeline backtest robustness report
+
+build:
+	$(PY) -m build
 
 clean:
 	@echo "Cleaning reports + processed artifacts (keep raw/cache)..."

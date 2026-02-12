@@ -1,106 +1,79 @@
 # Event Impact Model — Research Memo
 
-## 1. Hypothesis
-Regulatory filing events (SEC 8-K / 10-Q / 10-K) carry incremental information that can be mapped to a tradable timestamp and used to predict short-horizon post-event returns.
+## Summary
+This repo is a small, reproducible event-to-signal pipeline built around SEC filing timestamps (8-K / 10-Q / 10-K). The focus is on correct event alignment (timezone + NYSE sessions), leakage-aware modeling, and a minimal but realistic costed backtest. Outputs are deterministic artifacts and a generated report.
 
-The core claim is not “alpha exists”, but that the event layer is timestamped and aligned correctly and that any signal is evaluated out-of-sample with leakage guards.
+## Hypothesis
+SEC filing events contain information that can be mapped to a tradable timestamp and can help predict short-horizon post-event returns.
 
-## 2. Data
-**Universe**
-- Snapshot from SEC company tickers (`data/raw/universe_sec_YYYY-MM-DD.csv`).
+## Data
+- Universe: SEC company tickers snapshot (config-driven, size-limited for the MVP)
+- Events: EDGAR submissions metadata (`acceptanceDateTime`, UTC)
+- Prices: Stooq daily OHLCV (benchmark: SPY)
 
-**Events**
-- EDGAR submissions metadata, using `acceptanceDateTime` as the event timestamp.
-- Forms: 8-K, 10-Q, 10-K (configurable).
+## Event timestamping and trade-date mapping
+- Source timestamp: `acceptanceDateTime` (UTC) → converted to US/Eastern.
+- Session bucket:
+  - premarket (< 09:30 ET)
+  - intraday (09:30–16:00 ET)
+  - afterhours (>= 16:00 ET)
+- Effective trade date (daily MVP, conservative):
+  - premarket → same trading day open
+  - intraday/afterhours → next trading day open
+- NYSE calendar logic handles weekends/holidays and DST edge cases.
 
-**Prices**
-- Daily OHLCV from Stooq.
-- Benchmark: SPY.
+## Event study
+- Returns: close-to-close daily returns.
+- Benchmark: market model vs SPY (OLS per ticker).
+- Estimation window: [-120, -21] trading days.
+- Event window: [-10, +5] trading days.
+- Outputs:
+  - AR by tau
+  - CAR / CAAR
+  - Pre-trend check: CAR[-10, -2] should be close to 0
+  - Subgroup tests (form, session bucket) with BH-FDR (q-values)
 
-### Caveats
-- Universe snapshot can introduce survivorship/selection bias without historical membership.
-- Coverage gaps in Stooq and EDGAR lead to event drops; this can create non-random missingness.
-- Daily granularity compresses intraday microstructure; execution realism is limited by design.
+## Predictive modeling
+- Label (MVP): CAR[+1, +5].
+- Features (strictly pre-event):
+  - short/medium momentum (1/5/20d)
+  - volatility (20d)
+  - liquidity proxy (20d dollar volume)
+  - calendar features (day-of-week, month)
+  - event metadata (form, session bucket)
+- Models:
+  - baselines: Ridge (regression), Logistic (sign)
+  - main: LightGBM regression
+- CV: walk-forward with purge/embargo-style guardrails.
 
-## 3. Event timestamping and alignment
-- `acceptanceDateTime` is parsed as UTC and converted to US/Eastern.
-- Session bucket: premarket / intraday / afterhours.
-- Mapping to an effective NYSE trading date is calendar-aware (weekends/holidays).
+## Backtest and execution assumptions
+- Signal: cross-sectional ranking of OOS predictions per formation date.
+- Portfolio: long top-q / short bottom-q.
+- Execution: configurable delay (default next trading day), fixed holding horizon.
+- Costs: proportional to turnover (bps).
+- Constraints: max active names, per-name cap, gross target; optional portfolio vol targeting.
+- Primary goal: a mechanically correct backtest, not a production execution simulator.
 
-Conservative daily tradability mapping:
-- premarket  → same trading day
-- intraday   → next trading day
-- afterhours → next trading day
+## Robustness checks
+- Parameter sensitivity grids (diagnostic only; no “best row” selection).
+- Sanity checks:
+  - label shuffles / within-day shuffles (should degrade signal)
+  - subsample splits (stability across regimes / buckets)
 
-This avoids “same-day close” artifacts when the information arrives after the close.
+## Main artifacts
+- Report: `reports/REPORT.md`
+- Figures: `reports/figures/*.png`
+- Robustness tables: `reports/robustness_*.csv`
 
-## 4. Event study
-**Returns**
-- Close-to-close daily returns.
+## Limitations / known risks
+- Universe snapshot may imply survivorship bias (documented).
+- Daily data compresses intraday structure and execution (no intraday fills).
+- Price coverage gaps (Stooq missing tickers) drop events and reduce sample size.
+- SEC metadata is not a full “earnings calendar”; filings are sparse and heterogeneous.
+- Costs and slippage are simplified; capacity/impact is not modeled.
 
-**Abnormal returns**
-- Market model vs SPY, estimated per ticker:
-  - Estimation window: [-120, -21] trading days relative to event
-  - Event window: [-10, +5]
-- AR = actual − predicted
-- CAR/CAAR derived by aggregation.
-
-**Bias guards**
-- Estimation and event windows are separated.
-- Pre-trend check (CAR on negative taus) to detect drift before the event.
-- Subgroup testing uses Benjamini–Hochberg FDR control.
-
-## 5. Predictive modeling
-**Target**
-- CAR[+1, +5] from abnormal returns (post-event drift proxy).
-
-**Features**
-- Pre-event only: momentum, volatility, liquidity proxy, calendar features, event metadata.
-
-**Models**
-- Baselines: Ridge regression; logistic baseline on sign(target).
-- Nonlinear: LightGBM regression.
-
-**Cross-validation**
-- Walk-forward splitter with purge/embargo-style guardrails around the label horizon.
-
-## 6. Backtesting
-Two complementary views:
-
-**Event-level portfolios**
-- Cross-sectional long top-q / short bottom-q based on out-of-sample predictions.
-- Cost proxy: turnover-based bps.
-
-**Daily holdings engine**
-- Entry/exit based on delay and fixed holding horizon.
-- Constraints: max positions, per-name cap, gross exposure target.
-- Optional portfolio-level vol targeting (rolling lookback).
-
-All reported performance is based on out-of-sample predictions and includes explicit costs.
-
-## 7. Results
-Results are generated by the pipeline and stored in:
-- `reports/REPORT.md` (autogenerated)
-- `reports/figures/*`
-- `data/processed/cv_metrics*.csv`
-- `reports/backtest_engine_summary*.csv`
-- `reports/robustness_*.csv`
-
-## 8. Robustness and sanity checks
-- Random prediction baselines.
-- Subsample stability (by year and event buckets).
-- Within-day prediction shuffle to verify that ranking drives results rather than day-level structure.
-
-These checks are used to detect accidental backtest structure; they are not used for parameter selection.
-
-## 9. Failure modes / risks
-- Timestamp mapping errors (afterhours mapped to the wrong trading date) can create false alpha.
-- Feature availability timing must remain strictly pre-event (revision/leakage risk).
-- Universe/coverage bias from snapshot + missing price data.
-- Small-sample instability for sparse event types.
-
-## 10. Next steps
-- Improve universe construction (historical membership if available).
-- Add richer features with strict as-of handling (sector, size, ADV, dispersion proxies).
-- Improve execution realism (open prices, slippage proxies, capacity constraints).
-- Package polish (README/Makefile and a clean one-command run).
+## Next steps
+- Improve universe definition (historical membership snapshots).
+- Add richer “as-of” features and stricter availability timing.
+- Add intraday execution model (open/close, spread proxy, delayed fills).
+- Add more event families (earnings, guidance, macro events) with verified timestamps.
