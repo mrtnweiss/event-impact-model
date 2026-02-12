@@ -1,5 +1,8 @@
 # Event Impact Model
 
+**Author:** Martin Weiss (GitHub: [`mrtnweiss`](https://github.com/mrtnweiss))  
+**Note:** Some commits are attributed to [`uzewe`](https://github.com/uzewe) (university account / git config); both accounts are mine.
+
 A reproducible research pipeline that turns SEC filing events into an out-of-sample, costed long/short signal.
 
 This repository is MVP-oriented: correctness, leakage guards, and reproducible artifacts over complexity.
