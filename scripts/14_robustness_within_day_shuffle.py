@@ -55,7 +55,7 @@ def main() -> None:
     o2 = oos.copy()
     o2["pred_within_day_shuffle"] = o2[pred_col].astype(float)
 
-    for d, idx in o2.groupby(o2["date"].dt.date).groups.items():
+    for _d, idx in o2.groupby(o2["date"].dt.date).groups.items():
         vals = o2.loc[idx, "pred_within_day_shuffle"].to_numpy()
         o2.loc[idx, "pred_within_day_shuffle"] = rng.permutation(vals)
 
