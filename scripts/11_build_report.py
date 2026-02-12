@@ -168,11 +168,18 @@ def load_robustness_sanity(reports: Path) -> pd.DataFrame:
     return df if df is not None else pd.DataFrame()
 
 
+def load_robustness_subsamples(reports: Path) -> pd.DataFrame:
+    p = reports / "robustness_subsamples.csv"
+    df = _read_csv(p)
+    return df if df is not None else pd.DataFrame()
+
+
 def write_markdown_report(
     out_md: Path,
     cv_summary: pd.DataFrame,
     bt_summary: pd.DataFrame,
     robustness: pd.DataFrame,
+    subsamples: pd.DataFrame,
     figs_dir: Path,
 ) -> None:
     lines: list[str] = []
@@ -238,6 +245,13 @@ def write_markdown_report(
         lines.append(robustness.to_markdown(index=False))
         lines.append("")
 
+    lines.append("## Robustness (Subsamples)\n")
+    if subsamples.empty:
+        lines.append("_No subsample table found._\n")
+    else:
+        lines.append(subsamples.to_markdown(index=False))
+        lines.append("")
+
     lines.append("## Notes\n")
     lines.append(
         "- Sensitivitätsgrids dienen der Robustheitsprüfung, nicht der Parameteroptimierung.\n"
@@ -273,12 +287,14 @@ def main() -> None:
 
     bt_summary = load_backtest_summaries(reports)
     robustness = load_robustness_sanity(reports)
+    subsamples = load_robustness_subsamples(reports)
 
     write_markdown_report(
         reports / "REPORT.md",
         cv_summary=cv_summary,
         bt_summary=bt_summary,
         robustness=robustness,
+        subsamples=subsamples,
         figs_dir=figs,
     )
 
